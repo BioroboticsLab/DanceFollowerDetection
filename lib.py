@@ -32,7 +32,6 @@ def tracks_to_dataframe(tracks):
 class DanceFollowerDetector:
     """
         Classsifies the behavior of a given track as dance, follow or other.
-
     """
 
     # vds constants
@@ -86,7 +85,6 @@ class DanceFollowerDetector:
         Takes a track and returns the velocity-direction-switch values to detect single iterations.
         Args:
             track: A track with the columns: x, y, orientation and timestamp.
-
         Returns:
             The velocity-direction-switch values.
         """
@@ -112,7 +110,6 @@ class DanceFollowerDetector:
             window = track.iloc[left:right]
             window_diff = diffed.iloc[left:right]
             features = self.get_features(window, window_diff)
-            features['original_index'] = window.index[0].astype(int)  # for finding the bee back in the video
             l.append(features)
             left += 1
 
@@ -125,7 +122,6 @@ class DanceFollowerDetector:
         with a sliding_threshold_count (stc).
         Args:
             vds: The velocity-direction-switch values from `make_vds_features`
-
         Returns:
             The sliding threshold count values.
         """
@@ -141,39 +137,43 @@ class DanceFollowerDetector:
         df.gap_time = vds.gap_time
         return df
     
-    def predict(self, track):
+    def predict(self, track, boundaries=False):
         """
         Takes a single track as a pandas `DataFrame` and predicts if the track is a dancer, follower or nothing of both.
           The dataframe requires following columns: ['x', 'y', 'orientation', 'timestamp'].
-
         Args:
             track (pandas.DataFrame):
-
         Returns: The behavioral prediction.
-
         """
+        track.reset_index(inplace=True, drop=True)
         vds = self.make_vds_features(track)
-        stc = self.make_stc_features(vds)
+        stc = self.make_stc_features(vds).dropna(subset=['stc_turn', 'stc_side'])
         stc_max = stc.sort_values('stc_sum', ascending=False).iloc[:1]
         y_pred = self.lr.predict(stc_max[['stc_turn', 'stc_side']])[0]
-        return stc_max.index.values[0], y_pred
+        index = stc_max.index.values[0]
+        if boundaries:
+            y = pd.Series(self.lr.predict(stc[['stc_turn', 'stc_side']]), index=stc.index)
+            mask = y != 'o'
+            # get index for first occurence on left side and right side 'o'
+            left_mask = mask.loc[index::-1].cumprod() 
+            right_mask = mask.loc[index:].cumprod()
+            left = left_mask.argmin() + 1 if not left_mask.all() else 0
+            right = right_mask.argmin() if not right_mask.all() else right_mask.index.max()
+            return left, index, right, y_pred
+        
+        return index, y_pred
     
     def predict_proba(self, track):
         """
         Takes a single track as a pandas `DataFrame` and predicts as probabilities if the track is a dancer, follower or nothing of both.
           The dataframe requires following columns: ['x', 'y', 'orientation', 'timestamp'].
-
         Args:
             track (pandas.DataFrame):
-
         Returns: Probabilities of a the behavioral classes
-
         """
         vds = self.make_vds_features(track)
         stc = self.make_stc_features(vds)
         stc_max = stc.sort_values('stc_sum', ascending=False).iloc[:1]
         y_pred = self.lr.predict_proba(stc_max[['stc_turn', 'stc_side']])[0]
         return stc_max.index.values[0], y_pred
-        
-
 
