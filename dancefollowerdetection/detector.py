@@ -69,19 +69,6 @@ class DanceFollowerDetector:
         normed_y = x * sined + y * cosined
         return pd.DataFrame({'forwards': normed_x, 'sidewards': normed_y})
 
-    @staticmethod
-    def get_features(window, window_diff):
-        features = {}
-
-        gaps = (window_diff.timestamp // 0.36)
-        features['gap_time'] = gaps.sum()
-        features['gap_occ'] = (gaps > 0).sum()
-
-        features['vds_turn'] = window_diff.vds_turn.iat[0]
-        features['vds_side'] = window_diff.vds_side.iat[0]
-
-        return features
-
     def make_vds_features(self, track):
         """
         Takes a track and returns the velocity-direction-switch values to detect single iterations.
@@ -101,22 +88,7 @@ class DanceFollowerDetector:
         sidewards_mid = self.change_mid_window(self.window_size * 3 // 2)(egocentric.sidewards)
         diffed.loc[:, 'vds_side'] = sidewards_mid.score
 
-        ts_cumsum = diffed.timestamp.cumsum().fillna(0).reset_index(drop=True)
-
-        l = []
-        left = 0
-        while left < track.shape[0]:
-            right = np.argmax((ts_cumsum - ts_cumsum.iat[left]) >= self.window_size)
-            if right == 0:
-                break
-            window = track.iloc[left:right]
-            window_diff = diffed.iloc[left:right]
-            features = self.get_features(window, window_diff)
-            l.append(features)
-            left += 1
-
-        df_features = pd.DataFrame(l)
-        return df_features
+        return diffed[['vds_turn', 'vds_side']].copy()
 
     def make_stc_features(self, vds):
         """
@@ -136,7 +108,6 @@ class DanceFollowerDetector:
 
         df = vds.rolling(self.vds_window_size).sum().rename(columns={'vds_turn': 'stc_turn', 'vds_side': 'stc_side'})
         df.loc[:, 'stc_sum'] = df.stc_turn + df.stc_side
-        df.gap_time = vds.gap_time
         return df
 
     def predict(self, track, boundaries=False):
