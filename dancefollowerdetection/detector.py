@@ -115,7 +115,9 @@ class DanceFollowerDetector:
         return df
 
     def predict(self, track, boundaries=False):
-        if isinstance(track, namedtuple):
+        t = type(track)
+        class_path = t.__module__ + '.' + t.__name__
+        if class_path == 'bb_tracking.data.datastructures.Track':
             track = tracks_to_dataframe([track])
         return self._predict(track=track, boundaries=boundaries)
 
