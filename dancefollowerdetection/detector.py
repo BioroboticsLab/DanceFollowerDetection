@@ -1,4 +1,6 @@
 import pickle
+from collections import namedtuple
+
 import pandas as pd
 import numpy as np
 
@@ -113,6 +115,11 @@ class DanceFollowerDetector:
         return df
 
     def predict(self, track, boundaries=False):
+        if isinstance(track, namedtuple):
+            track = tracks_to_dataframe([track])
+        return self._predict(track=track, boundaries=boundaries)
+
+    def _predict(self, track, boundaries=False):
         """
         Takes a single track as a pandas `DataFrame` and predicts if the track is a dancer, follower or nothing of both.
           The dataframe requires following columns: ['x', 'y', 'orientation', 'timestamp'].
