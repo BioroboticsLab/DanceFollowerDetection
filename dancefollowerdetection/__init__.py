@@ -1,0 +1,1 @@
+from dancefollowerdetection.detector import DanceFollowerDetector
