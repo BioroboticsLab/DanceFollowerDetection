@@ -33,6 +33,18 @@ def tracks_to_dataframe(tracks):
     return df
 
 
+def convert_to_dataframe(func):
+    def f(*args, **kwargs):
+        track = args[1] if len(args) > 1 else kwargs['track']
+        t = type(track)
+        class_path = t.__module__ + '.' + t.__name__
+        if class_path == 'bb_tracking.data.datastructures.Track':
+            track = tracks_to_dataframe([track])
+        return func(args[0], track, *args[2:], **kwargs)
+
+    return f
+
+
 class DanceFollowerDetector:
     """
         Classifies the behavior of a given track as dance, follow or other.
@@ -108,20 +120,16 @@ class DanceFollowerDetector:
         if vds.shape[0] < self.vds_window_size:  # sliding window unnecessary, vds is already short
             vds.vds_turn = vds.vds_turn.sum()
             vds.vds_side = vds.vds_side.sum()
-            return vds.rename(columns={'vds_turn': 'stc_turn', 'vds_side': 'stc_side'})
+            vds.rename(columns={'vds_turn': 'stc_turn', 'vds_side': 'stc_side'}, inplace=True)
+            vds.loc[:, 'stc_sum'] = vds.stc_turn + vds.stc_side
+            return vds
 
         df = vds.rolling(self.vds_window_size).sum().rename(columns={'vds_turn': 'stc_turn', 'vds_side': 'stc_side'})
         df.loc[:, 'stc_sum'] = df.stc_turn + df.stc_side
         return df
 
+    @convert_to_dataframe
     def predict(self, track, boundaries=False):
-        t = type(track)
-        class_path = t.__module__ + '.' + t.__name__
-        if class_path == 'bb_tracking.data.datastructures.Track':
-            track = tracks_to_dataframe([track])
-        return self._predict(track=track, boundaries=boundaries)
-
-    def _predict(self, track, boundaries=False):
         """
         Takes a single track as a pandas `DataFrame` and predicts if the track is a dancer, follower or nothing of both.
           The dataframe requires following columns: ['x', 'y', 'orientation', 'timestamp'].
@@ -147,6 +155,7 @@ class DanceFollowerDetector:
 
         return index, y_pred
 
+    @convert_to_dataframe
     def predict_proba(self, track):
         """
         Takes a single track as a pandas `DataFrame` and predicts as probabilities if the track is a dancer, follower or nothing of both.
