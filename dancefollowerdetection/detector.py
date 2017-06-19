@@ -5,14 +5,19 @@ import pandas as pd
 import numpy as np
 
 
-def to_frame_id(frame_id):
+def to_frame_id(track_frame_id):
     """
     Takes a bb_tracker track id and returns the frame id within.
     E.g. to_frame_id('f14083813666064354331d24c1') = 14083813666064354331
-    :param frame_id: The track identifier
-    :return: The frame id
+
+    Args:
+        track_frame_id (str): The frame identifier for the track.
+
+    Returns:
+        str: The frame id
+
     """
-    return int(frame_id.split('d')[0][1:])
+    return int(track_frame_id.split('d')[0][1:])
 
 
 def tracks_to_dataframe(tracks):
